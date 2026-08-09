@@ -1,0 +1,33 @@
+{
+  "name": "arbiter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A production-minded platform for authoring, running, and comparing agentic coding evaluations.",
+  "packageManager": "pnpm@11.16.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "dev": "concurrently -k -n api,web \"pnpm --filter @arbiter/api dev\" \"pnpm --filter @arbiter/web dev\"",
+    "dev:api": "pnpm --filter @arbiter/api dev",
+    "dev:web": "pnpm --filter @arbiter/web dev",
+    "dev:worker": "pnpm --filter @arbiter/worker dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "pnpm -r --if-present test:unit",
+    "test:integration": "pnpm -r --if-present test:integration",
+    "test:e2e": "pnpm --filter @arbiter/web test:e2e",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
+  }
+}
