@@ -1,0 +1,27 @@
+{
+  "name": "@arbiter/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev -p 3000",
+    "lint": "eslint app components lib --max-warnings 0",
+    "start": "next start -p 3000",
+    "test:e2e": "python ../../tests/e2e/smoke.py",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arbiter/contracts": "workspace:*",
+    "@tanstack/react-query": "^5.85.5",
+    "next": "^15.5.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "eslint": "^9.33.0",
+    "typescript": "^5.9.2"
+  }
+}

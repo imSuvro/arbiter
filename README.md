@@ -23,11 +23,29 @@ pnpm dev
 
 The web console is served at `http://localhost:3000` and the API at `http://localhost:4000`.
 
+The seeded `Normalize webhook events` task is a real deterministic benchmark. Sign in with the operator credentials from `.env`, open the console, and run it to see candidate actions, protected verifier checks, a score, and the live event stream.
+
+## Workspace map
+
+- `apps/web` — Next.js public surface and authenticated operator console.
+- `services/api` — Express API, session authentication, task/run routes, and SSE events.
+- `services/worker` — SQS consumer for production queue-backed evaluations.
+- `packages/contracts` — Zod schemas and shared domain types.
+- `packages/evaluator` — provider loop, verifier execution, and weighted scoring.
+- `packages/sandbox` — constrained local/Docker execution boundary.
+- `packages/storage` — MongoDB repository and deterministic in-memory test store.
+- `packages/queue` — in-memory, LocalStack, and Amazon SQS queue adapters.
+- `infra/aws` — CDK topology for opt-in production preparation.
+
+Local development uses the deterministic provider and does not require a hosted model key. Set `GOOGLE_GEMINI_API_KEY` only when you explicitly want to run the Gemma adapter. AWS infrastructure is never created by `pnpm`, CI, or the local Compose workflow.
+
 Run the complete local validation suite with:
 
 ```powershell
 pnpm validate
 ```
+
+Coverage is collected with the V8 provider by `pnpm test:coverage`; the CI validation job runs it alongside the unit and service-backed integration suites. Coverage reports are written to each package's ignored `coverage/` directory for local inspection.
 
 ## Repository workflow
 

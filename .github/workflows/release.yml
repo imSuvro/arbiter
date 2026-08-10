@@ -1,0 +1,46 @@
+name: release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions: {}
+
+jobs:
+  release:
+    name: release-notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+  images:
+    name: publish-images
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish immutable service images
+        env:
+          IMAGE_ROOT: ghcr.io/${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          docker buildx build --push -f docker/api.Dockerfile -t "$IMAGE_ROOT/api:$VERSION" .
+          docker buildx build --push -f docker/web.Dockerfile -t "$IMAGE_ROOT/web:$VERSION" .
+          docker buildx build --push -f docker/worker.Dockerfile -t "$IMAGE_ROOT/worker:$VERSION" .
+          docker buildx build --push -f docker/sandbox.Dockerfile -t "$IMAGE_ROOT/sandbox:$VERSION" .

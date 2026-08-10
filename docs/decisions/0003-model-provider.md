@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use a provider interface with Google AI Studio Gemma 4 `gemma-4-31b-it` as the hosted development provider and a deterministic provider for tests and offline local validation.
+Use a provider interface with Google AI Studio Gemma 4 `gemma-4-26b-a4b-it` as the hosted development provider and a deterministic provider for tests and offline local validation. The 26B A4B variant is the default because Google documents it as requiring fewer resources than the 31B dense variant while keeping the same free Gemma API pricing.
 
 ## Why
 

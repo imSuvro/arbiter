@@ -17,4 +17,5 @@ artifacts/
 *.tsbuildinfo
 .aws/
 cdk.out/
+infra/aws/cdk.context.json
 !.github/
