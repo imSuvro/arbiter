@@ -31,7 +31,7 @@ export default function SettingsPage() {
             </div>
             <div className="settings-row">
               <span>Hosted adapter</span>
-              <strong>Google Gemma 4 31B</strong>
+              <strong>Google Gemma 4 26B A4B</strong>
             </div>
             <div className="settings-row">
               <span>Temperature</span>

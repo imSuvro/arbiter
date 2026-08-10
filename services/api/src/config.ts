@@ -10,7 +10,7 @@ const EnvironmentSchema = z.object({
   ARBITER_OPERATOR_EMAIL: z.string().email(),
   ARBITER_OPERATOR_PASSWORD: z.string().min(8),
   GOOGLE_GEMINI_API_KEY: z.string().optional(),
-  GOOGLE_GEMINI_MODEL: z.string().default('gemma-4-31b-it'),
+  GOOGLE_GEMINI_MODEL: z.string().default('gemma-4-26b-a4b-it'),
   QUEUE_BACKEND: z.enum(['memory', 'sqs']).default('memory'),
   QUEUE_URL: z.string().url().optional(),
   AWS_REGION: z.string().default('ap-south-1'),

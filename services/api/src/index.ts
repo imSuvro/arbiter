@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import { config as loadDotenv } from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { EvaluationEngine, createProviders, getProvider } from '@arbiter/evaluator';
@@ -6,6 +8,10 @@ import { MemoryQueue, SqsQueue, type Queue } from '@arbiter/queue';
 import { FilesystemSandboxRunner } from '@arbiter/sandbox';
 import { createStore } from '@arbiter/storage';
 import { ensureSeedData } from './seed.js';
+
+loadDotenv({
+  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.env'),
+});
 
 const config = loadConfig();
 const store = await createStore({

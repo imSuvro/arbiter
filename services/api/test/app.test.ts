@@ -17,7 +17,7 @@ describe('Arbiter API', () => {
     SESSION_SECRET: 'test-session-secret-123456',
     ARBITER_OPERATOR_EMAIL: 'operator@arbiter.local',
     ARBITER_OPERATOR_PASSWORD: 'local-password-123',
-    GOOGLE_GEMINI_MODEL: 'gemma-4-31b-it',
+    GOOGLE_GEMINI_MODEL: 'gemma-4-26b-a4b-it',
     QUEUE_BACKEND: 'memory' as const,
     AWS_REGION: 'ap-south-1',
     SANDBOX_BACKEND: 'local' as const,

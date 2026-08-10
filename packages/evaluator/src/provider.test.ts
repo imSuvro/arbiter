@@ -138,7 +138,7 @@ describe('DeterministicProvider', () => {
     expect(getProvider(deterministicOnly, 'missing')).toBeNull();
     const configured = createProviders({ googleApiKey: 'test-key', googleModel: 'gemma-test' });
     expect(configured).toHaveLength(2);
-    expect(getProvider(configured, 'google-gemma-4-31b')?.profile.model).toBe('gemma-test');
+    expect(getProvider(configured, 'google-gemma-4-26b-a4b')?.profile.model).toBe('gemma-test');
     expect(
       taskSummary({
         title: 'Example task',
@@ -231,9 +231,10 @@ describe('DeterministicProvider', () => {
       });
       const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
       const body = JSON.parse(String(request.body)) as {
-        generationConfig: { maxOutputTokens: number };
+        generationConfig: { maxOutputTokens: number; thinkingConfig: { thinkingLevel: string } };
       };
       expect(body.generationConfig.maxOutputTokens).toBe(2048);
+      expect(body.generationConfig.thinkingConfig.thinkingLevel).toBe('minimal');
       expect(request.signal).toBeDefined();
       expect(fetchMock).toHaveBeenCalledTimes(2);
     } finally {

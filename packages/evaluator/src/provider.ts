@@ -75,11 +75,11 @@ export class GoogleGemmaProvider implements ModelProvider {
 
   public constructor(
     private readonly apiKey: string,
-    model = 'gemma-4-31b-it',
+    model = 'gemma-4-26b-a4b-it',
   ) {
     this.profile = {
-      id: 'google-gemma-4-31b',
-      label: 'Google Gemma 4 31B',
+      id: 'google-gemma-4-26b-a4b',
+      label: 'Google Gemma 4 26B A4B',
       provider: 'google-ai-studio',
       model,
       available: true,
@@ -148,6 +148,7 @@ export class GoogleGemmaProvider implements ModelProvider {
               temperature: 0,
               responseMimeType: 'application/json',
               maxOutputTokens: GEMMA_MAX_OUTPUT_TOKENS,
+              thinkingConfig: { thinkingLevel: 'minimal' },
             },
           }),
         },
