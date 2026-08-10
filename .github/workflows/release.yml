@@ -3,6 +3,12 @@ name: release
 on:
   push:
     tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic-version tag to publish, for example v0.1.0
+        required: true
+        type: string
 
 permissions: {}
 
@@ -10,13 +16,17 @@ jobs:
   release:
     name: release-notes
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.version || github.ref }}
           persist-credentials: false
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          tag_name: ${{ inputs.version || github.ref_name }}
 
   images:
     name: publish-images
@@ -28,6 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.version || github.ref }}
           persist-credentials: false
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -37,9 +48,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish immutable service images
         env:
-          IMAGE_ROOT: ghcr.io/${{ github.repository }}
-          VERSION: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ inputs.version || github.ref_name }}
         run: |
+          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
           docker buildx build --push -f docker/api.Dockerfile -t "$IMAGE_ROOT/api:$VERSION" .
           docker buildx build --push -f docker/web.Dockerfile -t "$IMAGE_ROOT/web:$VERSION" .
           docker buildx build --push -f docker/worker.Dockerfile -t "$IMAGE_ROOT/worker:$VERSION" .
