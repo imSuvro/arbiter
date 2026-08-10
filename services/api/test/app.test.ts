@@ -33,7 +33,11 @@ describe('Arbiter API', () => {
     const queue = new MemoryQueue();
     const engine = new EvaluationEngine(
       store,
-      new FilesystemSandboxRunner({ backend: 'local', baseDir: 'data/test-sandboxes' }),
+      new FilesystemSandboxRunner({
+        backend: 'local',
+        allowLocalBackend: true,
+        baseDir: 'data/test-sandboxes',
+      }),
     );
     await queue.start(async (runId) => engine.process(runId, provider, 'test-worker'));
     app = createApp({ store, queue, engine, providers: [provider], config });
@@ -66,6 +70,37 @@ describe('Arbiter API', () => {
     expect((await agent.get('/api/runs')).status).toBe(200);
     expect((await agent.post('/api/auth/logout').send({})).status).toBe(204);
     expect((await agent.get('/api/auth/session')).status).toBe(401);
+  });
+
+  it('propagates session-store failures to the API error boundary', async () => {
+    class FailingSessionStore extends InMemoryStore {
+      public override async findSession(): Promise<null> {
+        throw new Error('session store unavailable');
+      }
+    }
+
+    const failingStore = new FailingSessionStore();
+    const failingEngine = new EvaluationEngine(
+      failingStore,
+      new FilesystemSandboxRunner({ backend: 'local', allowLocalBackend: true }),
+    );
+    const failingApp = createApp({
+      store: failingStore,
+      queue: new MemoryQueue(),
+      engine: failingEngine,
+      providers: [new DeterministicProvider()],
+      config,
+    });
+    const cookie = 'arbiter_session=known-token';
+
+    const sessionResponse = await request(failingApp)
+      .get('/api/auth/session')
+      .set('Cookie', cookie);
+    expect(sessionResponse.status).toBe(500);
+    expect(sessionResponse.body.title).toBe('Internal server error');
+
+    const protectedResponse = await request(failingApp).get('/api/tasks').set('Cookie', cookie);
+    expect(protectedResponse.status).toBe(500);
   });
 
   it('logs in and exposes the seeded task', async () => {

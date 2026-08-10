@@ -24,6 +24,7 @@ const engine = new EvaluationEngine(
   store,
   new FilesystemSandboxRunner({
     backend: process.env.SANDBOX_BACKEND === 'local' ? 'local' : 'docker',
+    allowLocalBackend: process.env.NODE_ENV !== 'production',
   }),
 );
 const workerId = process.env.WORKER_ID ?? `worker-${process.pid}`;

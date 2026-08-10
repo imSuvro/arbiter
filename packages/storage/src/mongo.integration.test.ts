@@ -83,6 +83,14 @@ describe.skipIf(!uri)('MongoStore integration', () => {
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
     expect((await store.findSession('token-1'))?.operatorId).toBe('operator-1');
+    await store.createSession({
+      id: 'session-expired',
+      tokenHash: 'token-expired',
+      operatorId: 'operator-1',
+      createdAt: new Date(Date.now() - 120_000).toISOString(),
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+    expect(await store.findSession('token-expired')).toBeNull();
     await store.deleteSession('token-1');
     expect(await store.findSession('token-1')).toBeNull();
 
@@ -115,6 +123,23 @@ describe.skipIf(!uri)('MongoStore integration', () => {
     });
     expect((await store.listEvents(run.id)).map((event) => event.sequence)).toEqual([1, 2, 3]);
     expect((await store.listEvents(run.id, 1)).length).toBe(2);
+
+    const parallelEvents = await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        store.appendEvent({
+          runId: run.id,
+          type: 'agent.turn',
+          message: `Concurrent event ${index}.`,
+          data: { index },
+        }),
+      ),
+    );
+    expect(
+      [...new Set(parallelEvents.map((event) => event.sequence))].sort((a, b) => a - b),
+    ).toEqual(Array.from({ length: 20 }, (_, index) => index + 4));
+    expect((await store.listEvents(run.id)).map((event) => event.sequence)).toEqual(
+      Array.from({ length: 23 }, (_, index) => index + 1),
+    );
     expect((await store.updateRun(run.id, { status: 'completed', score: 92 }))?.score).toBe(92);
     expect((await store.compare(version.id))[0]?.bestScore).toBe(92);
 

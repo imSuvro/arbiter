@@ -33,7 +33,10 @@ const queue: Queue =
     : new MemoryQueue();
 const engine = new EvaluationEngine(
   store,
-  new FilesystemSandboxRunner({ backend: config.SANDBOX_BACKEND }),
+  new FilesystemSandboxRunner({
+    backend: config.SANDBOX_BACKEND,
+    allowLocalBackend: config.NODE_ENV !== 'production',
+  }),
 );
 
 if (queue instanceof MemoryQueue) {

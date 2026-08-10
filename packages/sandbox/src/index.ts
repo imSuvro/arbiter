@@ -47,6 +47,7 @@ export interface SandboxOptions {
   backend: 'docker' | 'local';
   baseDir?: string;
   executeFile?: ExecuteFile;
+  allowLocalBackend?: boolean;
 }
 
 export function isSafeWorkspacePath(relativePath: string): boolean {
@@ -162,17 +163,17 @@ class FilesystemSandboxSession implements SandboxSession {
       '--tmpfs',
       '/tmp:rw,noexec,nosuid,size=64m',
       '--mount',
-      `type=bind,source=${normalizedRoot},target=/workspace`,
-      '--mount',
-      `type=bind,source=${normalizedVerifier},target=/verifier,readonly`,
+      `type=bind,source=${normalizedRoot},target=/workspace${role === 'verifier' ? ',readonly' : ''}`,
+      ...(role === 'verifier'
+        ? ['--mount', `type=bind,source=${normalizedVerifier},target=/verifier,readonly`]
+        : []),
       '--workdir',
-      '/workspace',
+      role === 'verifier' ? '/verifier' : '/workspace',
       '--env',
       'HOME=/tmp',
       '--env',
       `ARBITER_WORKSPACE=/workspace`,
-      '--env',
-      `ARBITER_VERIFIER_DIR=/verifier`,
+      ...(role === 'verifier' ? ['--env', 'ARBITER_VERIFIER_DIR=/verifier'] : []),
       this.spec.toolchain.image,
       'sh',
       '-lc',
@@ -216,11 +217,34 @@ class FilesystemSandboxSession implements SandboxSession {
     timeoutMs: number,
     startedAt: number,
   ): Promise<CommandResult> {
+    if (!this.options.allowLocalBackend) {
+      throw new Error(
+        'The local sandbox backend is disabled unless explicitly enabled for tests or local development.',
+      );
+    }
     const localCommand =
       role === 'verifier'
         ? command.replaceAll('/verifier/', './').replaceAll('/verifier', '.')
         : command;
     const workingDirectory = role === 'verifier' ? this.verifierRoot : this.root;
+    const localHome = path.join(this.root, '.arbiter-home');
+    const localTemp = path.join(this.root, '.arbiter-tmp');
+    await mkdir(localHome, { recursive: true });
+    await mkdir(localTemp, { recursive: true });
+    const env: NodeJS.ProcessEnv = {
+      ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+      ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+      ...(process.env.ComSpec ? { ComSpec: process.env.ComSpec } : {}),
+      ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}),
+      HOME: localHome,
+      USERPROFILE: localHome,
+      TEMP: localTemp,
+      TMP: localTemp,
+      TMPDIR: localTemp,
+      ARBITER_WORKSPACE: this.root,
+      ARBITER_SANDBOX_ROLE: role,
+      ...(role === 'verifier' ? { ARBITER_VERIFIER_DIR: this.verifierRoot } : {}),
+    };
     try {
       const result = await (this.options.executeFile ?? defaultExecuteFile)(
         process.platform === 'win32' ? 'cmd.exe' : 'sh',
@@ -230,12 +254,7 @@ class FilesystemSandboxSession implements SandboxSession {
           timeout: timeoutMs,
           windowsHide: true,
           maxBuffer: this.spec.limits.outputBytes,
-          env: {
-            ...process.env,
-            ARBITER_WORKSPACE: this.root,
-            ARBITER_VERIFIER_DIR: this.verifierRoot,
-            ARBITER_SANDBOX_ROLE: role,
-          },
+          env,
         },
       );
       return {
@@ -269,6 +288,11 @@ export class FilesystemSandboxRunner implements SandboxRunner {
   public constructor(private readonly options: SandboxOptions = { backend: 'docker' }) {}
 
   public async create(spec: TaskSpec): Promise<SandboxSession> {
+    if (this.options.backend === 'local' && !this.options.allowLocalBackend) {
+      throw new Error(
+        'The local sandbox backend is disabled unless explicitly enabled for tests or local development.',
+      );
+    }
     const baseDir = path.resolve(
       this.options.baseDir ?? path.resolve(process.cwd(), 'data', 'sandboxes'),
     );
