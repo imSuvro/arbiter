@@ -1,0 +1,8 @@
+{
+  "app": "npx tsx src/app.ts",
+  "context": {
+    "@aws-cdk/aws-ecs:enableImdsBlocking": true,
+    "@aws-cdk/aws-ecs:enableEcsManagedTags": true,
+    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true
+  }
+}

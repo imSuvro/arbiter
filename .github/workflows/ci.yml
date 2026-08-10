@@ -13,6 +13,53 @@ jobs:
   validate:
     name: validate
     runs-on: ubuntu-latest
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_ENDPOINT: http://127.0.0.1:4566
+    services:
+      mongodb:
+        image: mongo:8.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      localstack:
+        image: localstack/localstack:4.7
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: sqs,s3
+          DEBUG: 0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:coverage
+      - run: pnpm build
+      - name: Synthesize infrastructure
+        run: pnpm --filter @arbiter/infra-aws synth
+        env:
+          BUDGET_ALERT_EMAIL: ci@example.com
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
     services:
       mongodb:
         image: mongo:8.0
@@ -33,8 +80,79 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+      - name: Build API and web dependencies
+        run: |
+          pnpm --filter @arbiter/api... build
+          pnpm --filter @arbiter/web... build
+      - run: python -m pip install -r requirements-e2e.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Start API
+        run: pnpm --filter @arbiter/api dev > /tmp/arbiter-api.log 2>&1 &
+        env:
+          NODE_ENV: test
+          API_PORT: 4000
+          WEB_ORIGIN: http://localhost:3000
+          MONGODB_URI: mongodb://127.0.0.1:27017
+          MONGODB_DB_NAME: arbiter_e2e
+          SESSION_SECRET: e2e-session-secret-please-change
+          ARBITER_OPERATOR_EMAIL: operator@arbiter.local
+          ARBITER_OPERATOR_PASSWORD: local-password-123
+          QUEUE_BACKEND: memory
+          SANDBOX_BACKEND: local
+      - name: Start web
+        run: pnpm --filter @arbiter/web start > /tmp/arbiter-web.log 2>&1 &
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+      - name: Wait for services
+        run: |
+          for attempt in $(seq 1 40); do
+            curl --fail http://localhost:4000/health && curl --fail http://localhost:3000 && exit 0
+            sleep 2
+          done
+          cat /tmp/arbiter-api.log
+          cat /tmp/arbiter-web.log
+          exit 1
+      - run: pnpm test:e2e
+        env:
+          WEB_URL: http://localhost:3000
+          ARBITER_OPERATOR_EMAIL: operator@arbiter.local
+          ARBITER_OPERATOR_PASSWORD: local-password-123
+
+  containers:
+    name: containers
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build service images
+        run: |
+          docker build -f docker/api.Dockerfile -t arbiter-api:ci .
+          docker build -f docker/web.Dockerfile -t arbiter-web:ci .
+          docker build -f docker/worker.Dockerfile -t arbiter-worker:ci .
+          docker build -f docker/sandbox.Dockerfile -t arbiter-sandbox:ci .
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level high
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

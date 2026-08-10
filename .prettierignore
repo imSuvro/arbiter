@@ -6,3 +6,4 @@ playwright-report
 test-results
 cdk.out
 pnpm-lock.yaml
+*.py
