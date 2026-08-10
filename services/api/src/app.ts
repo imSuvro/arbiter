@@ -149,14 +149,14 @@ export function createApp(dependencies: ApiDependencies): express.Express {
     }),
   );
 
-  app.get('/api/auth/session', (request, response) => {
+  app.get('/api/auth/session', (request, response, next) => {
     void requireAuth(store, request, response, () =>
       response.json({ authenticated: true, operatorId: response.locals.operatorId }),
-    );
+    ).catch(next);
   });
 
   const authenticated = (request: Request, response: Response, next: NextFunction): void => {
-    void requireAuth(store, request, response, next);
+    void requireAuth(store, request, response, next).catch(next);
   };
 
   app.get('/api/models', authenticated, (_request, response) =>

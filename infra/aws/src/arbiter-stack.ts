@@ -36,24 +36,28 @@ export class ArbiterStack extends cdk.Stack {
     const apiRepo = new ecr.Repository(this, 'ApiRepository', {
       repositoryName: 'arbiter/api',
       imageScanOnPush: true,
+      imageTagMutability: ecr.TagMutability.IMMUTABLE,
       encryption: ecr.RepositoryEncryption.AES_256,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
     const webRepo = new ecr.Repository(this, 'WebRepository', {
       repositoryName: 'arbiter/web',
       imageScanOnPush: true,
+      imageTagMutability: ecr.TagMutability.IMMUTABLE,
       encryption: ecr.RepositoryEncryption.AES_256,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
     const workerRepo = new ecr.Repository(this, 'WorkerRepository', {
       repositoryName: 'arbiter/worker',
       imageScanOnPush: true,
+      imageTagMutability: ecr.TagMutability.IMMUTABLE,
       encryption: ecr.RepositoryEncryption.AES_256,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
     const sandboxRepo = new ecr.Repository(this, 'SandboxRepository', {
       repositoryName: 'arbiter/sandbox',
       imageScanOnPush: true,
+      imageTagMutability: ecr.TagMutability.IMMUTABLE,
       encryption: ecr.RepositoryEncryption.AES_256,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
@@ -224,13 +228,14 @@ export class ArbiterStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
     });
 
+    const sandboxTaskRole = new iam.Role(this, 'SandboxTaskRole', {
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+    });
     const sandboxTask = new ecs.FargateTaskDefinition(this, 'SandboxTask', {
       cpu: 512,
       memoryLimitMiB: 1024,
       executionRole,
-      taskRole: new iam.Role(this, 'SandboxTaskRole', {
-        assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-      }),
+      taskRole: sandboxTaskRole,
       ephemeralStorageGiB: 21,
     });
     sandboxTask.addContainer('Sandbox', {
@@ -251,7 +256,12 @@ export class ArbiterStack extends cdk.Stack {
     workerRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['iam:PassRole'],
-        resources: [sandboxTask.executionRole?.roleArn ?? '*'],
+        resources: [executionRole.roleArn, sandboxTaskRole.roleArn],
+        conditions: {
+          StringEquals: {
+            'iam:PassedToService': 'ecs-tasks.amazonaws.com',
+          },
+        },
       }),
     );
     queue.grantSendMessages(apiRole);

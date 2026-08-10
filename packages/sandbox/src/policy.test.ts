@@ -42,8 +42,16 @@ describe('sandbox path policy', () => {
         },
       ],
     };
+    await expect(
+      new FilesystemSandboxRunner({
+        backend: 'local',
+        baseDir: path.join(tmpdir(), 'arbiter-sandbox-disabled-tests'),
+      }).create(spec),
+    ).rejects.toThrow('disabled');
+
     const runner = new FilesystemSandboxRunner({
       backend: 'local',
+      allowLocalBackend: true,
       baseDir: path.join(tmpdir(), 'arbiter-sandbox-policy-tests'),
     });
     const session = await runner.create(spec);
@@ -80,9 +88,42 @@ describe('sandbox path policy', () => {
     const dockerResult = await dockerSession.runCommand('node -p 7');
     expect(dockerResult.exitCode).toBe(0);
     expect(dockerResult.stdout).toContain('[output truncated]');
-    expect(dockerCalls[0]).toContain('--network');
-    expect(dockerCalls[0]).toContain('none');
+    const candidateDockerCall = dockerCalls[0] ?? [];
+    expect(candidateDockerCall).toContain('--network');
+    expect(candidateDockerCall).toContain('none');
+    expect(candidateDockerCall.some((argument) => argument.includes('/verifier'))).toBe(false);
+    expect(candidateDockerCall).not.toContain('ARBITER_VERIFIER_DIR=/verifier');
+    const verifierDockerResult = await dockerSession.runCommand(
+      'node /verifier/check.mjs',
+      'verifier',
+    );
+    expect(verifierDockerResult.exitCode).toBe(0);
+    const verifierDockerCall = dockerCalls[1] ?? [];
+    expect(
+      verifierDockerCall.some((argument) => argument.includes('target=/workspace,readonly')),
+    ).toBe(true);
+    expect(
+      verifierDockerCall.some((argument) => argument.includes('target=/verifier,readonly')),
+    ).toBe(true);
+    expect(verifierDockerCall).toContain('ARBITER_VERIFIER_DIR=/verifier');
+    expect(verifierDockerCall).toContain('/verifier');
     await dockerSession.destroy();
+
+    const localEnvironments: NodeJS.ProcessEnv[] = [];
+    const safeLocalRunner = new FilesystemSandboxRunner({
+      backend: 'local',
+      allowLocalBackend: true,
+      baseDir: path.join(tmpdir(), 'arbiter-sandbox-local-env-tests'),
+      executeFile: async (_file, _args, options) => {
+        localEnvironments.push(options.env ?? {});
+        return { stdout: '', stderr: '' };
+      },
+    });
+    const safeLocalSession = await safeLocalRunner.create(spec);
+    await safeLocalSession.runCommand('node -p 7');
+    expect(localEnvironments[0]?.ARBITER_VERIFIER_DIR).toBeUndefined();
+    expect(localEnvironments[0]?.GOOGLE_GEMINI_API_KEY).toBeUndefined();
+    await safeLocalSession.destroy();
 
     const timeoutRunner = new FilesystemSandboxRunner({
       backend: 'docker',

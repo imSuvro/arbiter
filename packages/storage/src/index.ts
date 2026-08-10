@@ -234,6 +234,20 @@ export class InMemoryStore implements Store {
 
 type MongoDocument = Record<string, unknown>;
 
+type MongoSessionDocument = MongoDocument & {
+  id: string;
+  tokenHash: string;
+  operatorId: string;
+  createdAt: string;
+  expiresAt: string;
+  expiresAtDate: Date;
+};
+
+interface MongoEventCounterDocument {
+  runId: string;
+  sequence: number;
+}
+
 export class MongoStore implements Store {
   private constructor(
     private readonly client: MongoClient,
@@ -244,6 +258,7 @@ export class MongoStore implements Store {
     private readonly versions: Collection<MongoDocument>,
     private readonly runs: Collection<MongoDocument>,
     private readonly events: Collection<MongoDocument>,
+    private readonly eventCounters: Collection<MongoEventCounterDocument>,
   ) {}
 
   public static async connect(uri: string, databaseName: string): Promise<MongoStore> {
@@ -259,6 +274,7 @@ export class MongoStore implements Store {
       db.collection('task_versions'),
       db.collection('runs'),
       db.collection('run_events'),
+      db.collection<MongoEventCounterDocument>('run_event_counters'),
     );
     await store.createIndexes();
     return store;
@@ -268,12 +284,13 @@ export class MongoStore implements Store {
     await Promise.all([
       this.operators.createIndex({ email: 1 }, { unique: true }),
       this.sessions.createIndex({ tokenHash: 1 }, { unique: true }),
-      this.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+      this.sessions.createIndex({ expiresAtDate: 1 }, { expireAfterSeconds: 0 }),
       this.tasks.createIndex({ slug: 1 }, { unique: true }),
       this.versions.createIndex({ taskId: 1, version: 1 }, { unique: true }),
       this.runs.createIndex({ status: 1, createdAt: 1 }),
       this.runs.createIndex({ idempotencyKey: 1 }, { unique: true, sparse: true }),
       this.events.createIndex({ runId: 1, sequence: 1 }, { unique: true }),
+      this.eventCounters.createIndex({ runId: 1 }, { unique: true }),
     ]);
   }
 
@@ -293,14 +310,21 @@ export class MongoStore implements Store {
   }
 
   public async createSession(record: SessionRecord): Promise<void> {
-    await this.sessions.insertOne(record as unknown as MongoDocument);
+    const document: MongoSessionDocument = {
+      ...(record as unknown as MongoDocument),
+      expiresAtDate: new Date(record.expiresAt),
+    } as MongoSessionDocument;
+    await this.sessions.insertOne(document);
   }
 
   public async findSession(tokenHash: string): Promise<SessionRecord | null> {
-    return (await this.sessions.findOne(
-      { tokenHash },
+    const document = (await this.sessions.findOne(
+      { tokenHash, expiresAtDate: { $gt: new Date() } },
       { projection: { _id: 0 } },
-    )) as SessionRecord | null;
+    )) as MongoSessionDocument | null;
+    if (!document) return null;
+    const { expiresAtDate: _expiresAtDate, ...record } = document;
+    return record as SessionRecord;
   }
 
   public async deleteSession(tokenHash: string): Promise<void> {
@@ -402,11 +426,15 @@ export class MongoStore implements Store {
   public async appendEvent(
     input: Omit<RunEvent, 'id' | 'sequence' | 'createdAt'>,
   ): Promise<RunEvent> {
-    const previous = await this.events.findOne({ runId: input.runId }, { sort: { sequence: -1 } });
+    const counter = (await this.eventCounters.findOneAndUpdate(
+      { runId: input.runId },
+      { $inc: { sequence: 1 }, $setOnInsert: { runId: input.runId } },
+      { upsert: true, returnDocument: 'after', projection: { _id: 0 } },
+    )) as unknown as MongoEventCounterDocument | null;
     const event: RunEvent = {
       ...input,
       id: randomUUID(),
-      sequence: Number(previous?.sequence ?? 0) + 1,
+      sequence: Number(counter?.sequence ?? 1),
       createdAt: new Date().toISOString(),
     };
     await this.events.insertOne(event);
