@@ -80,7 +80,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @arbiter/web... build
+      - name: Build API and web dependencies
+        run: |
+          pnpm --filter @arbiter/api... build
+          pnpm --filter @arbiter/web... build
       - run: python -m pip install -r requirements-e2e.txt
       - run: python -m playwright install --with-deps chromium
       - name: Start API
@@ -139,6 +142,8 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 11.16.0
