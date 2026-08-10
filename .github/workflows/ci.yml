@@ -80,7 +80,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @arbiter/web build
+      - run: pnpm --filter @arbiter/web... build
       - run: python -m pip install -r requirements-e2e.txt
       - run: python -m playwright install --with-deps chromium
       - name: Start API
