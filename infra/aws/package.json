@@ -1,0 +1,23 @@
+{
+  "name": "@arbiter/infra-aws",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "cdk": "cdk",
+    "lint": "eslint src --max-warnings 0",
+    "synth": "cdk synth",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.230.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "aws-cdk": "^2.230.0",
+    "eslint": "^9.33.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
