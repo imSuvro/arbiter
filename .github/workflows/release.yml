@@ -48,9 +48,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish immutable service images
         env:
-          IMAGE_ROOT: ghcr.io/${{ github.repository }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           VERSION: ${{ inputs.version || github.ref_name }}
         run: |
+          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
           docker buildx build --push -f docker/api.Dockerfile -t "$IMAGE_ROOT/api:$VERSION" .
           docker buildx build --push -f docker/web.Dockerfile -t "$IMAGE_ROOT/web:$VERSION" .
           docker buildx build --push -f docker/worker.Dockerfile -t "$IMAGE_ROOT/worker:$VERSION" .
