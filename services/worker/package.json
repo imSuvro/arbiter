@@ -1,0 +1,25 @@
+{
+  "name": "@arbiter/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint src --max-warnings 0",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@arbiter/evaluator": "workspace:*",
+    "@arbiter/queue": "workspace:*",
+    "@arbiter/sandbox": "workspace:*",
+    "@arbiter/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "eslint": "^9.33.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
